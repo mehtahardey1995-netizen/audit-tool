@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit Report Generator — Books & Shelves</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --gold: #c8a96e;
+  --gold2: #e8c98e;
+  --ink: #0a0d18;
+  --ink2: #111525;
+  --ink3: #161c30;
+  --bdr: #1e2840;
+  --text: #e8e4d8;
+  --faint: #4a5570;
+  --mid: #6a7a9a;
+  --green: #5cb87a;
+  --red: #e05555;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh}
+
+/* ── HEADER ── */
+.header{
+  background:linear-gradient(135deg,#090c16 0%,#0f1528 100%);
+  border-bottom:1px solid var(--bdr);
+  padding:0 40px;
+  display:flex;align-items:center;height:64px;
+  position:sticky;top:0;z-index:100;
+}
+.logo-mark{width:32px;height:32px;background:var(--gold);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-right:12px;flex-shrink:0}
+.logo-text{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold);font-weight:700;letter-spacing:.5px}
+.logo-sub{font-size:10px;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;margin-top:1px}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.ai-badge{background:rgba(200,169,110,.1);border:1px solid rgba(200,169,110,.25);color:var(--gold);font-size:11px;padding:4px 12px;border-radius:20px;letter-spacing:.5px}
+
+/* ── LAYOUT ── */
+.app-shell{display:flex;min-height:calc(100vh - 64px)}
+.sidebar{width:240px;background:#090c16;border-right:1px solid var(--bdr);padding:28px 0;position:sticky;top:64px;height:calc(100vh - 64px);overflow-y:auto;flex-shrink:0}
+.main{flex:1;padding:40px;max-width:760px;margin:0 auto}
+
+/* ── SIDEBAR STEPS ── */
+.step-item{display:flex;align-items:center;gap:12px;padding:12px 24px;cursor:pointer;border-left:3px solid transparent;transition:all .2s}
+.step-item:hover{background:rgba(200,169,110,.05)}
+.step-item.active{border-left-color:var(--gold);background:rgba(200,169,110,.08)}
+.step-item.done{border-left-color:var(--green)}
+.step-num{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--bdr);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--faint);flex-shrink:0;transition:all .2s}
+.step-item.active .step-num{border-color:var(--gold);color:var(--gold);background:rgba(200,169,110,.1)}
+.step-item.done .step-num{border-color:var(--green);background:var(--green);color:#fff;font-size:12px}
+.step-label{font-size:12.5px;font-weight:600;color:var(--faint);transition:color .2s}
+.step-item.active .step-label{color:var(--text)}
+.step-item.done .step-label{color:var(--green)}
+.step-sub{font-size:10px;color:var(--faint);margin-top:1px}
+.sidebar-footer{padding:20px 24px;border-top:1px solid var(--bdr);margin-top:auto}
+.prog-bar{height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-bottom:8px}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:2px;transition:width .4s ease}
+.prog-label{font-size:10px;color:var(--faint)}
+
+/* ── PANEL ── */
+.panel{display:none;animation:fadeIn .25s ease}
+.panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.panel-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--text);margin-bottom:4px}
+.panel-sub{font-size:13px;color:var(--mid);margin-bottom:28px}
+
+/* ── CARD ── */
+.card{background:var(--ink2);border:1px solid var(--bdr);border-radius:12px;padding:24px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:700;letter-spacing:.5px;color:var(--gold);text-transform:uppercase;margin-bottom:16px}
+
+/* ── FORM ── */
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.field-row.tri{grid-template-columns:1fr 1fr 1fr}
+.fld{display:flex;flex-direction:column}
+label{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--faint);text-transform:uppercase;margin-bottom:6px}
+input,select,textarea{background:#0a0d18;border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Outfit',sans-serif;font-size:13.5px;outline:none;transition:border-color .15s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+select option{background:#0a0d18}
+textarea{resize:vertical;min-height:70px}
+
+/* ── UPLOAD ── */
+.upload-zone{border:2px dashed var(--bdr);border-radius:10px;padding:30px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;position:relative}
+.upload-zone:hover,.upload-zone.hover{border-color:var(--gold);background:rgba(200,169,110,.03)}
+.upload-zone.loading{border-color:var(--gold);animation:pulse 1.5s ease-in-out infinite}
+.upload-zone.done{border-color:var(--green);background:rgba(92,184,122,.05)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+.upload-icon{font-size:32px;margin-bottom:8px}
+.upload-label{font-size:13px;font-weight:600;color:var(--mid);margin-bottom:4px}
+.upload-fmts{font-size:11px;color:var(--faint)}
+.upload-zone.done .upload-label{color:var(--green)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* ── AI STATUS ── */
+.ai-status{display:flex;align-items:center;gap:8px;font-size:12px;padding:10px 14px;border-radius:8px;margin-bottom:12px}
+.ai-status.loading{background:rgba(200,169,110,.07);border:1px solid rgba(200,169,110,.2);color:var(--gold)}
+.ai-status.ok{background:rgba(92,184,122,.08);border:1px solid rgba(92,184,122,.2);color:var(--green)}
+.ai-status.warn{background:rgba(224,85,85,.07);border:1px solid rgba(224,85,85,.2);color:var(--red)}
+.spinner{width:14px;height:14px;border:2px solid rgba(200,169,110,.3);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── FIGURES GRID ── */
+.fig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.fig-box{background:#0a0d18;border:1px solid var(--bdr);border-radius:8px;padding:11px 13px}
+.fig-lbl{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.fig-val{font-size:15px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+
+/* ── BUTTONS ── */
+.btn-row{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+.btn{border-radius:8px;padding:11px 24px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;border:none;letter-spacing:.3px}
+.btn-primary{background:var(--gold);color:#0a0d18;font-weight:700}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;border:1px solid rgba(200,169,110,.35);color:var(--gold)}
+.btn-ghost:hover{background:rgba(200,169,110,.08)}
+.btn-danger{background:transparent;border:none;color:var(--red);font-size:11px;cursor:pointer;padding:4px 8px}
+
+/* ── OWNER CARD ── */
+.owner-card{background:#0a0d18;border:1px solid var(--bdr);border-radius:8px;padding:16px;margin-bottom:12px}
+.owner-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.owner-num{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.5px}
+
+/* ── REVIEW ── */
+.review-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.review-item{background:#0a0d18;border:1px solid var(--bdr);border-radius:8px;padding:12px 16px}
+.review-item.ok{border-color:rgba(92,184,122,.3)}
+.review-lbl{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.review-val{font-size:13px;font-weight:600;color:var(--text)}
+.review-ok{color:var(--green);font-size:9px;font-weight:700}
+
+.include-box{background:rgba(200,169,110,.05);border:1px solid rgba(200,169,110,.18);border-radius:8px;padding:14px 16px;margin-bottom:20px}
+.include-title{font-size:11px;color:var(--gold);font-weight:700;margin-bottom:8px}
+.include-tags{display:flex;flex-wrap:wrap;gap:8px}
+.include-tag{background:rgba(200,169,110,.1);border:1px solid rgba(200,169,110,.2);color:var(--gold);font-size:11px;padding:4px 10px;border-radius:14px}
+
+/* ── API KEY ── */
+.api-section{background:rgba(200,169,110,.04);border:1px solid rgba(200,169,110,.15);border-radius:10px;padding:16px;margin-bottom:20px}
+.api-label{font-size:11px;color:var(--gold);font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+
+/* ── REPORT VIEWER ── */
+#report-viewer{display:none;position:fixed;inset:0;z-index:500;background:#f5f0e6;overflow-y:auto}
+.report-toolbar{position:fixed;top:0;left:0;right:0;background:#1a1a2e;padding:10px 20px;display:flex;align-items:center;gap:10px;z-index:600;border-bottom:1px solid #2a2a4a}
+.report-body{margin-top:52px;padding:0}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="header">
+  <div class="logo-mark">📋</div>
+  <div>
+    <div class="logo-text">Audit Report Generator</div>
+    <div class="logo-sub">Books &amp; Shelves LLC FZ · IFRS Compliant</div>
+  </div>
+  <div class="header-right">
+    <span class="ai-badge">⚡ Claude AI Inside</span>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div id="steps-nav"></div>
+    <div class="sidebar-footer">
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="prog-label" id="prog-label">0 of 6 steps complete</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ── PANEL 0: Setup ── -->
+    <div class="panel active" id="p0">
+      <div class="panel-title">Get Started</div>
+      <div class="panel-sub">Enter your Claude AI API key and company basics to begin</div>
+
+      <div class="api-section">
+        <div class="api-label">🔑 Claude API Key <span style="font-weight:400;color:var(--mid);font-size:10px">(from console.anthropic.com — free tier works)</span></div>
+        <input type="password" id="api-key" placeholder="sk-ant-api03-..." style="margin-bottom:0"
+          oninput="localStorage.setItem('claude_key',this.value)">
+        <div style="font-size:11px;color:var(--faint);margin-top:8px">Your key is stored locally in your browser only. Never sent anywhere except Anthropic's API.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Company Information</div>
+        <div class="field-row">
+          <div class="fld"><label>Company Name</label><input id="co-name" placeholder="e.g. Al Masar Al Saree FZCO"></div>
+          <div class="fld"><label>Financial Year</label>
+            <select id="co-year"><option>2025</option><option>2024</option><option>2023</option><option>2022</option></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Currency</label>
+            <select id="co-cur"><option>AED</option><option>USD</option><option>EUR</option></select>
+          </div>
+          <div class="fld"><label>Emirate</label>
+            <select id="co-emirate"><option>Dubai</option><option>Abu Dhabi</option><option>Sharjah</option><option>Ajman</option><option>Ras Al Khaimah</option><option>Fujairah</option></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Registered Address</label><input id="co-addr" placeholder="e.g. C11, LIU, Dubai Airport Freezone"></div>
+          <div class="fld"><label>Business Activity</label><input id="co-activity" placeholder="e.g. Mobile phones &amp; accessories trading"></div>
+        </div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="goStep(1)">Next: Trade License →</button></div>
+    </div>
+
+    <!-- ── PANEL 1: Trade License ── -->
+    <div class="panel" id="p1">
+      <div class="panel-title">Trade License</div>
+      <div class="panel-sub">Upload your license — Claude reads all fields automatically</div>
+      <div class="card">
+        <div class="upload-zone" id="tl-zone">
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleTL(this.files[0])">
+          <div class="upload-icon" id="tl-icon">📋</div>
+          <div class="upload-label" id="tl-lbl">Click to upload Trade License</div>
+          <div class="upload-fmts">PDF · JPEG · PNG</div>
+        </div>
+        <div id="tl-status"></div>
+        <div class="field-row">
+          <div class="fld"><label>License Number</label><input id="tl-num" placeholder="e.g. 4377"></div>
+          <div class="fld"><label>Issuing Authority</label><input id="tl-auth" placeholder="e.g. DAFZA"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Issue Date</label><input id="tl-issue" placeholder="DD/MM/YYYY"></div>
+          <div class="fld"><label>Expiry Date</label><input id="tl-expiry" placeholder="DD/MM/YYYY"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(0)">← Back</button>
+        <button class="btn btn-primary" onclick="goStep(2)">Next: Trial Balance →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 2: Trial Balance ── -->
+    <div class="panel" id="p2">
+      <div class="panel-title">Trial Balance</div>
+      <div class="panel-sub">Claude extracts all financial figures — handles Indian lakh format automatically</div>
+      <div class="card">
+        <div class="upload-zone" id="tb-zone">
+          <input type="file" accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png" onchange="handleTB(this.files[0])">
+          <div class="upload-icon" id="tb-icon">📊</div>
+          <div class="upload-label" id="tb-lbl">Click to upload Trial Balance</div>
+          <div class="upload-fmts">PDF · Excel · CSV · Image</div>
+        </div>
+        <div id="tb-status"></div>
+        <div id="tb-figs" style="display:none">
+          <div class="fig-grid" id="tb-fig-grid"></div>
+          <div style="font-size:11px;color:var(--faint);margin-bottom:12px">✏ Verify or edit any figure below</div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Sales / Revenue</label><input id="tb-sales" type="number" placeholder="0"></div>
+          <div class="fld"><label>Cost of Sales</label><input id="tb-cos" type="number" placeholder="0"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Gross Profit</label><input id="tb-gp" type="number" placeholder="0"></div>
+          <div class="fld"><label>Net Profit</label><input id="tb-np" type="number" placeholder="0"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Total Assets</label><input id="tb-assets" type="number" placeholder="0"></div>
+          <div class="fld"><label>Total Equity</label><input id="tb-equity" type="number" placeholder="0"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Total Liabilities</label><input id="tb-liab" type="number" placeholder="0"></div>
+          <div class="fld"><label>Share Capital</label><input id="tb-sc" type="number" placeholder="100000" value="100000"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Cash &amp; Bank</label><input id="tb-cash" type="number" placeholder="0"></div>
+          <div class="fld"><label>Trade Receivables</label><input id="tb-rec" type="number" placeholder="0"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Inventory / Stock</label><input id="tb-inv" type="number" placeholder="0"></div>
+          <div class="fld"><label>Trade Payables</label><input id="tb-pay" type="number" placeholder="0"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="goStep(3)">Next: Prior Year →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 3: Prior Year ── -->
+    <div class="panel" id="p3">
+      <div class="panel-title">Prior Year Report</div>
+      <div class="panel-sub">Upload last year's audit report — Claude extracts comparative figures</div>
+      <div class="card">
+        <div class="upload-zone" id="py-zone">
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="handlePY(this.files[0])">
+          <div class="upload-icon" id="py-icon">📁</div>
+          <div class="upload-label" id="py-lbl">Click to upload Prior Year Audit Report</div>
+          <div class="upload-fmts">PDF · JPEG · PNG · Optional but recommended</div>
+        </div>
+        <div id="py-status"></div>
+        <div class="field-row">
+          <div class="fld"><label>Total Assets (Prior Year)</label><input id="py-assets" type="number" placeholder="e.g. 32543605"></div>
+          <div class="fld"><label>Total Equity (Prior Year)</label><input id="py-equity" type="number" placeholder="e.g. 11040741"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Revenue (Prior Year)</label><input id="py-rev" type="number" placeholder="e.g. 1623284589"></div>
+          <div class="fld"><label>Net Profit (Prior Year)</label><input id="py-np" type="number" placeholder="e.g. 6695969"></div>
+        </div>
+        <div class="field-row">
+          <div class="fld"><label>Total Liabilities (Prior Year)</label><input id="py-liab" type="number" placeholder="e.g. 21502864"></div>
+          <div class="fld"><label>Cash &amp; Bank (Prior Year)</label><input id="py-cash" type="number" placeholder="e.g. 7056192"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(2)">← Back</button>
+        <button class="btn btn-primary" onclick="goStep(4)">Next: Shareholders →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 4: Shareholders ── -->
+    <div class="panel" id="p4">
+      <div class="panel-title">Shareholders</div>
+      <div class="panel-sub">Add all owners and their shareholding percentages</div>
+      <div id="owners-list"></div>
+      <button class="btn btn-ghost" onclick="addOwner()" style="width:100%;margin-bottom:8px">+ Add Shareholder</button>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(3)">← Back</button>
+        <button class="btn btn-primary" onclick="goStep(5)">Next: Review →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 5: Review & Generate ── -->
+    <div class="panel" id="p5">
+      <div class="panel-title">Review &amp; Generate</div>
+      <div class="panel-sub">Everything looks good? Hit Generate to create your IFRS audit report</div>
+      <div class="review-grid" id="review-grid"></div>
+      <div class="include-box">
+        <div class="include-title">📄 Your report will include:</div>
+        <div class="include-tags">
+          <span class="include-tag">✓ Auditor's Opinion</span>
+          <span class="include-tag">✓ Statement of Financial Position</span>
+          <span class="include-tag">✓ Profit &amp; Loss Statement</span>
+          <span class="include-tag">✓ Prior Year Comparatives</span>
+          <span class="include-tag">✓ Shareholding Structure</span>
+          <span class="include-tag">✓ Key Financial Ratios</span>
+          <span class="include-tag">✓ Notes to Financial Statements</span>
+          <span class="include-tag">✓ Signature Blocks</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(4)">← Back</button>
+        <button class="btn btn-primary" id="gen-btn" onclick="generateReport()">🚀 Generate Audit Report</button>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ══ REPORT VIEWER ══ -->
+<div id="report-viewer">
+  <div class="report-toolbar">
+    <button class="btn btn-ghost" onclick="document.getElementById('report-viewer').style.display='none'" style="padding:7px 16px;font-size:12px">← Back</button>
+    <button class="btn btn-primary" onclick="window.print()" style="padding:7px 16px;font-size:12px">🖨 Print / Save PDF</button>
+    <span style="font-size:11px;color:#8899bb;margin-left:8px">Tip: Print → Save as PDF for best quality</span>
+  </div>
+  <div class="report-body" id="report-body"></div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─── STATE ──────────────────────────────────────────────────
+let currentStep = 0;
+let stepDone = {};
+let owners = [{ name:'', nationality:'', share:'', role:'Shareholder' }];
+
+const STEPS = [
+  { label:'Setup', sub:'API key & company' },
+  { label:'Trade License', sub:'Auto-read by Claude' },
+  { label:'Trial Balance', sub:'Financial figures' },
+  { label:'Prior Year', sub:'Comparative data' },
+  { label:'Shareholders', sub:'Ownership structure' },
+  { label:'Generate', sub:'Review & create report' },
+];
+
+// ─── INIT ───────────────────────────────────────────────────
+window.onload = () => {
+  const saved = localStorage.getItem('claude_key');
+  if (saved) document.getElementById('api-key').value = saved;
+  renderNav();
+  renderOwners();
+};
+
+// ─── NAVIGATION ─────────────────────────────────────────────
+function goStep(n) {
+  stepDone[currentStep] = true;
+  currentStep = n;
+  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', i === n));
+  renderNav();
+  if (n === 5) renderReview();
+  window.scrollTo(0, 0);
+}
+
+function renderNav() {
+  const done = Object.keys(stepDone).length;
+  document.getElementById('prog-fill').style.width = (done/6*100) + '%';
+  document.getElementById('prog-label').textContent = done + ' of 6 steps complete';
+  document.getElementById('steps-nav').innerHTML = STEPS.map((s,i) => `
+    <div class="step-item ${i===currentStep?'active':''} ${stepDone[i]?'done':''}" onclick="goStep(${i})">
+      <div class="step-num">${stepDone[i]?'✓':(i+1)}</div>
+      <div><div class="step-label">${s.label}</div><div class="step-sub">${s.sub}</div></div>
+    </div>`).join('');
+}
+
+// ─── OWNERS ─────────────────────────────────────────────────
+function addOwner() { owners.push({name:'',nationality:'',share:'',role:'Shareholder'}); renderOwners(); }
+function removeOwner(i) { owners.splice(i,1); renderOwners(); }
+function renderOwners() {
+  document.getElementById('owners-list').innerHTML = owners.map((o,i) => `
+    <div class="owner-card">
+      <div class="owner-header">
+        <div class="owner-num">SHAREHOLDER ${i+1}</div>
+        ${owners.length>1?`<button class="btn-danger" onclick="removeOwner(${i})">✕ Remove</button>`:''}
+      </div>
+      <div class="field-row">
+        <div class="fld"><label>Full Name</label><input value="${o.name}" oninput="owners[${i}].name=this.value" placeholder="e.g. Abdullah M A H A Akbar"></div>
+        <div class="fld"><label>Nationality</label><input value="${o.nationality}" oninput="owners[${i}].nationality=this.value" placeholder="e.g. Kuwaiti"></div>
+      </div>
+      <div class="field-row">
+        <div class="fld"><label>Share %</label><input type="number" value="${o.share}" oninput="owners[${i}].share=this.value" placeholder="e.g. 50"></div>
+        <div class="fld"><label>Role</label>
+          <select onchange="owners[${i}].role=this.value">
+            ${['Shareholder','Managing Director','Director','Partner'].map(r=>`<option ${o.role===r?'selected':''}>${r}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── REVIEW ─────────────────────────────────────────────────
+function renderReview() {
+  const items = [
+    ['Company', v('co-name') || '—', !!v('co-name')],
+    ['License No.', v('tl-num') || 'Not entered', !!v('tl-num')],
+    ['Sales', v('tb-sales') ? 'AED '+fmt(v('tb-sales')) : 'Not entered', !!v('tb-sales')],
+    ['Net Profit', v('tb-np') ? 'AED '+fmt(v('tb-np')) : 'Not entered', !!v('tb-np')],
+    ['Total Assets', v('tb-assets') ? 'AED '+fmt(v('tb-assets')) : 'Not entered', !!v('tb-assets')],
+    ['Shareholders', owners.filter(o=>o.name).length + ' added', owners.some(o=>o.name)],
+    ['Prior Year', v('py-assets') ? 'AED '+fmt(v('py-assets')) : 'Skipped (optional)', true],
+    ['Financial Year', v('co-year'), true],
+  ];
+  document.getElementById('review-grid').innerHTML = items.map(([l,val,ok]) => `
+    <div class="review-item ${ok?'ok':''}">
+      <div class="review-lbl">${ok?'<span class="review-ok">✓ </span>':''}${l}</div>
+      <div class="review-val">${val}</div>
+    </div>`).join('');
+}
+
+// ─── HELPERS ────────────────────────────────────────────────
+function v(id) { return (document.getElementById(id)?.value || '').trim(); }
+function fmt(n) { n=parseFloat(n)||0; return Math.round(Math.abs(n)).toLocaleString('en-AE'); }
+function setStatus(id, type, msg) {
+  document.getElementById(id).innerHTML = `<div class="ai-status ${type}">${type==='loading'?'<div class="spinner"></div>':type==='ok'?'✅':type==='warn'?'⚠️':''} ${msg}</div>`;
+}
+function setZone(zoneId, iconId, lblId, state, label) {
+  const z = document.getElementById(zoneId);
+  z.className = 'upload-zone ' + state;
+  document.getElementById(iconId).textContent = state==='done'?'✅':state==='loading'?'⏳':'📄';
+  document.getElementById(lblId).textContent = label;
+}
+
+// ─── API KEY ────────────────────────────────────────────────
+function getKey() {
+  return v('api-key') || localStorage.getItem('claude_key') || '';
+}
+
+// ─── CLAUDE API ─────────────────────────────────────────────
+async function askClaude(messages, maxTokens=800) {
+  const key = getKey();
+  if (!key) throw new Error('No API key — please add your Claude key in Step 1');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-opus-4-20250514',max_tokens:maxTokens,messages})
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({error:{message:res.statusText}}));
+    throw new Error(err.error?.message || res.statusText);
+  }
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
+}
+
+async function fileToB64(file) {
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ─── PDF TEXT EXTRACT ───────────────────────────────────────
+async function extractPDFText(file) {
+  try {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:ab}).promise;
+    let text = '';
+    for (let i=1; i<=Math.min(pdf.numPages,6); i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item=>item.str).join(' ');
+      text += pageText + '\n';
+    }
+    return text.trim();
+  } catch(e) { return ''; }
+}
+
+// ─── TRADE LICENSE ──────────────────────────────────────────
+async function handleTL(file) {
+  if (!file) return;
+  setZone('tl-zone','tl-icon','tl-lbl','loading','Claude is reading your license…');
+  setStatus('tl-status','loading','Sending to Claude AI…');
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isImg = ['jpg','jpeg','png'].includes(ext);
+    const b64 = await fileToB64(file);
+    const mediaType = isImg ? (file.type||'image/jpeg') : 'application/pdf';
+    const prompt = `Extract these fields from this UAE trade license. Return ONLY a raw JSON object, no markdown:
+{"licenseNumber":"","issueDate":"DD/MM/YYYY","expiryDate":"DD/MM/YYYY","issuingAuthority":"","emirate":"","companyName":"","businessActivity":"","address":""}`;
+    const content = isImg
+      ? [{type:'image',source:{type:'base64',media_type:mediaType,data:b64}},{type:'text',text:prompt}]
+      : [{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}];
+    const text = await askClaude([{role:'user',content}], 400);
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      const d = JSON.parse(m[0]);
+      if (d.licenseNumber) document.getElementById('tl-num').value = d.licenseNumber;
+      if (d.issuingAuthority) document.getElementById('tl-auth').value = d.issuingAuthority;
+      if (d.issueDate) document.getElementById('tl-issue').value = d.issueDate;
+      if (d.expiryDate) document.getElementById('tl-expiry').value = d.expiryDate;
+      if (d.companyName && !v('co-name')) document.getElementById('co-name').value = d.companyName;
+      if (d.businessActivity && !v('co-activity')) document.getElementById('co-activity').value = d.businessActivity;
+      if (d.address && !v('co-addr')) document.getElementById('co-addr').value = d.address;
+      setZone('tl-zone','tl-icon','tl-lbl','done','✓ Trade License Read Successfully');
+      setStatus('tl-status','ok','Claude extracted all license fields automatically!');
+    } else { throw new Error('Could not parse response'); }
+  } catch(e) {
+    setZone('tl-zone','tl-icon','tl-lbl','','Upload Trade License');
+    setStatus('tl-status','warn','⚠ '+e.message+' — please fill fields manually.');
+  }
+}
+
+// ─── TRIAL BALANCE ──────────────────────────────────────────
+async function handleTB(file) {
+  if (!file) return;
+  setZone('tb-zone','tb-icon','tb-lbl','loading','Claude is reading your trial balance…');
+  setStatus('tb-status','loading','Extracting financial figures…');
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isImg = ['jpg','jpeg','png'].includes(ext);
+    const b64 = await fileToB64(file);
+    const mediaType = isImg ? (file.type||'image/jpeg') : 'application/pdf';
+    const prompt = `This is a UAE company trial balance. Extract financial figures. 
+IMPORTANT: Numbers may use Indian lakh format like 1,84,14,695 — convert to standard: 18414695.
+Return ONLY raw JSON, no markdown:
+{"sales":0,"costOfSales":0,"grossProfit":0,"netProfit":0,"totalAssets":0,"totalEquity":0,"totalLiabilities":0,"cash":0,"receivables":0,"inventory":0,"payables":0,"shareCapital":0}
+Rules: sales = total revenue/turnover. costOfSales = purchases + direct expenses - closing stock. netProfit = P&L balance. Use 0 for missing fields.`;
+    const content = isImg
+      ? [{type:'image',source:{type:'base64',media_type:mediaType,data:b64}},{type:'text',text:prompt}]
+      : [{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}];
+    const text = await askClaude([{role:'user',content}], 600);
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      const d = JSON.parse(m[0]);
+      const fields = {sales:'tb-sales',costOfSales:'tb-cos',grossProfit:'tb-gp',netProfit:'tb-np',
+        totalAssets:'tb-assets',totalEquity:'tb-equity',totalLiabilities:'tb-liab',
+        cash:'tb-cash',receivables:'tb-rec',inventory:'tb-inv',payables:'tb-pay',shareCapital:'tb-sc'};
+      Object.entries(fields).forEach(([k,id]) => { if (d[k]) document.getElementById(id).value = d[k]; });
+      // Show figures grid
+      const figs = [['Sales',d.sales],['Cost of Sales',d.costOfSales],['Gross Profit',d.grossProfit],
+        ['Net Profit',d.netProfit],['Total Assets',d.totalAssets],['Total Equity',d.totalEquity],
+        ['Total Liabilities',d.totalLiabilities],['Cash & Bank',d.cash],['Receivables',d.receivables]];
+      document.getElementById('tb-fig-grid').innerHTML = figs.map(([l,v2]) =>
+        `<div class="fig-box"><div class="fig-lbl">${l}</div><div class="fig-val">${v2>0?fmt(v2):'—'}</div></div>`).join('');
+      document.getElementById('tb-figs').style.display = 'block';
+      setZone('tb-zone','tb-icon','tb-lbl','done','✓ Trial Balance Extracted');
+      setStatus('tb-status','ok','Claude extracted all financial figures! Please verify below.');
+    } else { throw new Error('Could not parse response'); }
+  } catch(e) {
+    setZone('tb-zone','tb-icon','tb-lbl','','Upload Trial Balance');
+    setStatus('tb-status','warn','⚠ '+e.message+' — please enter figures manually below.');
+  }
+}
+
+// ─── PRIOR YEAR ─────────────────────────────────────────────
+async function handlePY(file) {
+  if (!file) return;
+  setZone('py-zone','py-icon','py-lbl','loading','Claude is reading prior year figures…');
+  setStatus('py-status','loading','Extracting comparative figures…');
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isImg = ['jpg','jpeg','png'].includes(ext);
+    const b64 = await fileToB64(file);
+    const mediaType = isImg ? (file.type||'image/jpeg') : 'application/pdf';
+    const prompt = `This is a prior year audit report. Extract the PRIOR YEAR figures (the older year column, not the current/most recent year).
+Return ONLY raw JSON, no markdown:
+{"assets":0,"equity":0,"revenue":0,"netProfit":0,"liabilities":0,"cash":0}`;
+    const content = isImg
+      ? [{type:'image',source:{type:'base64',media_type:mediaType,data:b64}},{type:'text',text:prompt}]
+      : [{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}];
+    const text = await askClaude([{role:'user',content}], 300);
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      const d = JSON.parse(m[0]);
+      if (d.assets) document.getElementById('py-assets').value = d.assets;
+      if (d.equity) document.getElementById('py-equity').value = d.equity;
+      if (d.revenue) document.getElementById('py-rev').value = d.revenue;
+      if (d.netProfit) document.getElementById('py-np').value = d.netProfit;
+      if (d.liabilities) document.getElementById('py-liab').value = d.liabilities;
+      if (d.cash) document.getElementById('py-cash').value = d.cash;
+      setZone('py-zone','py-icon','py-lbl','done','✓ Prior Year Figures Extracted');
+      setStatus('py-status','ok','Comparative figures loaded successfully!');
+    } else { throw new Error('Could not parse response'); }
+  } catch(e) {
+    setZone('py-zone','py-icon','py-lbl','','Upload Prior Year Report');
+    setStatus('py-status','warn','⚠ '+e.message+' — please enter figures manually.');
+  }
+}
+
+// ─── GENERATE REPORT ────────────────────────────────────────
+async function generateReport() {
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true; btn.textContent = '⏳ Generating…';
+  try {
+    const cur = v('co-cur') || 'AED';
+    const yr = v('co-year') || '2025';
+    const pyYr = parseInt(yr) - 1;
+    const sales = parseFloat(v('tb-sales'))||0;
+    const cos   = parseFloat(v('tb-cos'))||0;
+    const gp    = parseFloat(v('tb-gp'))||(sales-cos);
+    const np    = parseFloat(v('tb-np'))||0;
+    const ta    = parseFloat(v('tb-assets'))||0;
+    const te    = parseFloat(v('tb-equity'))||0;
+    const tl    = parseFloat(v('tb-liab'))||(ta-te);
+    const cash  = parseFloat(v('tb-cash'))||0;
+    const rec   = parseFloat(v('tb-rec'))||0;
+    const inv   = parseFloat(v('tb-inv'))||0;
+    const pay   = parseFloat(v('tb-pay'))||0;
+    const sc    = parseFloat(v('tb-sc'))||100000;
+    const retained = te - sc;
+    const pya   = parseFloat(v('py-assets'))||0;
+    const pye   = parseFloat(v('py-equity'))||0;
+    const pyr   = parseFloat(v('py-rev'))||0;
+    const pynp  = parseFloat(v('py-np'))||0;
+    const pytl  = parseFloat(v('py-liab'))||0;
+    const pycash= parseFloat(v('py-cash'))||0;
+    const coName = v('co-name')||'Company Name';
+    const auth   = v('tl-auth')||'Free Zone Authority';
+    const licNum = v('tl-num')||'—';
+    const licExp = v('tl-expiry')||'—';
+    const activity = v('co-activity')||'trading activities';
+    const addr   = v('co-addr')||v('co-emirate')+', UAE';
+
+    const f = (n) => Math.round(Math.abs(n)||0).toLocaleString('en-AE');
+    const py = (v2,pv) => pv>0?`<td class="num">${cur} ${f(pv)}</td>`:`<td class="num dash">—</td>`;
+
+    const ownersRows = owners.filter(o=>o.name).map(o=>
+      `<tr><td>${o.name}</td><td>${o.nationality||'—'}</td><td>${o.role}</td><td class="num">${o.share}%</td></tr>`).join('') ||
+      `<tr><td colspan="4" style="text-align:center;color:#999">No shareholders added</td></tr>`;
+
+    const opexp = gp - np;
+    const gpMarg = sales>0?((gp/sales)*100).toFixed(1)+'%':'—';
+    const npMarg = sales>0?((np/sales)*100).toFixed(1)+'%':'—';
+    const currRatio= tl>0?(((cash+rec+inv)/tl)).toFixed(2)+'x':'—';
+    const deRatio  = te>0?((tl/te)).toFixed(2)+'x':'—';
+    const roe      = te>0?((np/te)*100).toFixed(1)+'%':'—';
+
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>Audit Report — ${coName} — ${yr}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:#f5f0e6;color:#1a1a2e;font-size:13px}
+.page{max-width:900px;margin:0 auto;background:#fff;padding:64px;min-height:100vh}
+h1{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:700;color:#1a1a2e}
+h2{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:700;margin:36px 0 14px;color:#1a1a2e;border-bottom:2px solid #c8a96e;padding-bottom:7px}
+h3{font-size:13px;font-weight:700;margin:18px 0 8px;color:#1a1a2e}
+.cover{text-align:center;padding:70px 0 56px;border-bottom:3px solid #c8a96e;margin-bottom:44px}
+.cover-pre{font-size:11px;letter-spacing:2.5px;color:#c8a96e;text-transform:uppercase;margin-bottom:18px}
+.cover-co{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;color:#1a1a2e;margin-bottom:10px;line-height:1.2}
+.cover-addr{font-size:13px;color:#777;margin-bottom:6px}
+.cover-yr{font-size:13px;color:#777;margin-bottom:28px}
+.cover-badge{display:inline-block;background:#1a1a2e;color:#c8a96e;padding:9px 24px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:1.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0 26px;font-size:12.5px}
+th{background:#1a1a2e;color:#c8a96e;padding:9px 14px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.7px}
+td{padding:8px 14px;border-bottom:1px solid #eee;vertical-align:middle}
+tr.total td{font-weight:700;font-size:13px;border-top:2px solid #1a1a2e;border-bottom:2px solid #1a1a2e;background:#f8f4ec}
+tr.section td{background:#f0ece3;font-weight:700;font-size:10.5px;letter-spacing:.7px;color:#555;text-transform:uppercase}
+tr.sub td:first-child{padding-left:26px;color:#555;font-style:italic}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.dash{text-align:right;color:#bbb}
+p{margin-bottom:13px;line-height:1.75;color:#333;font-size:13px}
+.sig-area{margin-top:52px;display:flex;gap:48px;flex-wrap:wrap}
+.sig-block{flex:1;min-width:160px}
+.sig-line{border-top:1.5px solid #1a1a2e;margin-bottom:7px;margin-top:64px}
+.sig-name{font-weight:700;font-size:12px}
+.sig-title{font-size:11px;color:#777}
+.footer{margin-top:44px;padding-top:16px;border-top:1px solid #ddd;font-size:11px;color:#aaa;text-align:center;line-height:1.6}
+.page-break{page-break-before:always}
+@media print{body{background:#fff}.page{padding:40px;max-width:100%;margin:0}}
+</style></head><body>
+<div class="page">
+
+<div class="cover">
+  <div class="cover-pre">Independent Auditor's Report</div>
+  <div class="cover-co">${coName}</div>
+  <div class="cover-addr">${addr}</div>
+  <div class="cover-yr">Financial Year Ended 31 December ${yr}</div>
+  <div class="cover-badge">IFRS COMPLIANT &nbsp;·&nbsp; ${cur} &nbsp;·&nbsp; ${auth}</div>
+</div>
+
+<h2>1. Independent Auditor's Report</h2>
+<h3>To the Shareholders of ${coName}</h3>
+<h3>Opinion</h3>
+<p>We have audited the financial statements of <strong>${coName}</strong> (the "Company"), which comprise the statement of financial position as at 31 December ${yr}, and the statements of profit or loss and other comprehensive income, changes in equity and cash flows for the year then ended, and notes to the financial statements, including a summary of significant accounting policies.</p>
+<p>In our opinion, the accompanying financial statements present fairly, in all material respects, the financial position of ${coName} as at 31 December ${yr}, and its financial performance and its cash flows for the year then ended in accordance with International Financial Reporting Standards (IFRS).</p>
+
+<h3>Basis for Opinion</h3>
+<p>We conducted our audit in accordance with International Standards on Auditing (ISAs). Our responsibilities under those standards are further described in the Auditor's Responsibilities section of our report. We are independent of the Company in accordance with the ethical requirements that are relevant to our audit of the financial statements, and we have fulfilled our other ethical responsibilities in accordance with these requirements. We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.</p>
+
+<h3>Management's Responsibility for the Financial Statements</h3>
+<p>Management is responsible for the preparation and fair presentation of the financial statements in accordance with IFRS, and for such internal control as management determines is necessary to enable the preparation of financial statements that are free from material misstatement, whether due to fraud or error.</p>
+
+<h3>Auditor's Responsibilities for the Audit of the Financial Statements</h3>
+<p>Our objectives are to obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor's report that includes our opinion. Reasonable assurance is a high level of assurance, but is not a guarantee that an audit conducted in accordance with ISAs will always detect a material misstatement when it exists.</p>
+<p style="margin-top:20px;font-size:11px;color:#999;font-style:italic">Books And Shelves LLC FZ · Licensed Auditors &amp; Tax Consultants · Dubai, UAE · License No. —</p>
+
+<h2 class="page-break">2. Statement of Financial Position</h2>
+<p style="font-size:11px;color:#888;margin-top:-8px;margin-bottom:14px">As at 31 December ${yr} | All figures in ${cur}</p>
+<table>
+<thead><tr><th style="width:50%">Description</th><th class="num" style="width:25%">${yr}</th><th class="num" style="width:25%">${pyYr}</th></tr></thead>
+<tbody>
+<tr class="section"><td colspan="3">ASSETS</td></tr>
+<tr class="sub"><td>Non-Current Assets</td><td></td><td></td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Property, Plant &amp; Equipment</td><td class="num dash">—</td><td class="num dash">—</td></tr>
+<tr class="sub"><td>Current Assets</td><td></td><td></td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Cash and Bank Balances</td><td class="num">${cur} ${f(cash)}</td>${py(0,pycash)}</tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Trade Receivables</td><td class="num">${rec>0?cur+' '+f(rec):'—'}</td><td class="num dash">—</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Inventories</td><td class="num">${inv>0?cur+' '+f(inv):'—'}</td><td class="num dash">—</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Other Current Assets</td><td class="num dash">—</td><td class="num dash">—</td></tr>
+<tr class="total"><td>TOTAL ASSETS</td><td class="num">${cur} ${f(ta)}</td>${py(0,pya)}</tr>
+
+<tr class="section"><td colspan="3">EQUITY &amp; LIABILITIES</td></tr>
+<tr class="sub"><td>Equity</td><td></td><td></td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Share Capital</td><td class="num">${cur} ${f(sc)}</td><td class="num dash">—</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Retained Earnings / (Accumulated Losses)</td><td class="num">${cur} ${f(retained>0?retained:0)}</td><td class="num dash">—</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Shareholders' Current Account</td><td class="num">${retained<0?cur+' '+f(te-sc):'—'}</td><td class="num dash">—</td></tr>
+<tr class="total"><td>TOTAL EQUITY</td><td class="num">${cur} ${f(te)}</td>${py(0,pye)}</tr>
+
+<tr class="sub"><td>Non-Current Liabilities</td><td></td><td></td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Staff Terminal Benefits</td><td class="num dash">—</td><td class="num dash">—</td></tr>
+<tr class="sub"><td>Current Liabilities</td><td></td><td></td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Trade Payables</td><td class="num">${pay>0?cur+' '+f(pay):'—'}</td><td class="num dash">—</td></tr>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;Other Payables &amp; Advances</td><td class="num">${cur} ${f(tl-pay>0?tl-pay:0)}</td><td class="num dash">—</td></tr>
+<tr class="total"><td>TOTAL LIABILITIES</td><td class="num">${cur} ${f(tl)}</td>${py(0,pytl)}</tr>
+<tr class="total"><td>TOTAL EQUITY &amp; LIABILITIES</td><td class="num">${cur} ${f(ta)}</td>${py(0,pya)}</tr>
+</tbody></table>
+
+<h2>3. Statement of Profit or Loss</h2>
+<p style="font-size:11px;color:#888;margin-top:-8px;margin-bottom:14px">For the year ended 31 December ${yr} | All figures in ${cur}</p>
+<table>
+<thead><tr><th style="width:50%">Description</th><th class="num" style="width:25%">${yr}</th><th class="num" style="width:25%">${pyYr}</th></tr></thead>
+<tbody>
+<tr><td><strong>Revenue / Sales</strong></td><td class="num">${cur} ${f(sales)}</td>${py(0,pyr)}</tr>
+<tr><td>Cost of Sales</td><td class="num">(${f(cos)})</td><td class="num dash">—</td></tr>
+<tr class="total"><td>Gross Profit</td><td class="num">${cur} ${f(gp)}</td><td class="num dash">—</td></tr>
+<tr><td>Operating &amp; Admin Expenses</td><td class="num">${opexp>0?'('+f(opexp)+')':'—'}</td><td class="num dash">—</td></tr>
+<tr class="total"><td>Net Profit for the Year</td><td class="num">${cur} ${f(np)}</td>${py(0,pynp)}</tr>
+<tr><td>Other Comprehensive Income</td><td class="num">—</td><td class="num dash">—</td></tr>
+<tr class="total"><td>Total Comprehensive Income</td><td class="num">${cur} ${f(np)}</td>${py(0,pynp)}</tr>
+</tbody></table>
+
+<h2>4. Shareholding Structure</h2>
+<table>
+<thead><tr><th>Shareholder Name</th><th>Nationality</th><th>Designation</th><th class="num">Ownership %</th></tr></thead>
+<tbody>${ownersRows}</tbody>
+</table>
+
+<h2>5. Key Financial Ratios — ${yr}</h2>
+<table>
+<thead><tr><th>Ratio</th><th class="num">${yr} Value</th><th>Benchmark</th><th>Interpretation</th></tr></thead>
+<tbody>
+<tr><td>Gross Profit Margin</td><td class="num">${gpMarg}</td><td>Industry varies</td><td>Revenue after cost of sales</td></tr>
+<tr><td>Net Profit Margin</td><td class="num">${npMarg}</td><td>&gt; 5% healthy</td><td>Bottom-line profitability</td></tr>
+<tr><td>Current Ratio</td><td class="num">${currRatio}</td><td>&gt; 1.5x ideal</td><td>Ability to pay short-term debts</td></tr>
+<tr><td>Debt to Equity Ratio</td><td class="num">${deRatio}</td><td>&lt; 2.0x healthy</td><td>Financial leverage level</td></tr>
+<tr><td>Return on Equity</td><td class="num">${roe}</td><td>&gt; 15% good</td><td>Returns generated on owner equity</td></tr>
+</tbody></table>
+
+<h2>6. Notes to Financial Statements</h2>
+<h3>Note 1 — Legal Status and Principal Activities</h3>
+<p>${coName} is registered in ${v('co-emirate')||'Dubai'}, United Arab Emirates under ${auth} with Trade License No. ${licNum}${licExp!=='—'?' (valid until '+licExp+')':''}. The Company is primarily engaged in ${activity}.</p>
+
+<h3>Note 2 — Basis of Preparation</h3>
+<p>These financial statements have been prepared in accordance with International Financial Reporting Standards (IFRS) issued by the International Accounting Standards Board (IASB) and the applicable requirements of UAE Law. The financial statements are presented in ${cur}, which is the Company's functional and presentation currency. The financial statements have been prepared under the historical cost convention.</p>
+
+<h3>Note 3 — Revenue Recognition (IFRS 15)</h3>
+<p>Revenue from contracts with customers is recognized when control of goods or services is transferred to the customer at an amount that reflects the consideration to which the Company expects to be entitled. The Company applies the five-step model prescribed by IFRS 15 for revenue recognition.</p>
+
+<h3>Note 4 — Going Concern</h3>
+<p>The directors have assessed the Company's ability to continue as a going concern. Based on the financial position as at 31 December ${yr} and projected cash flows, the directors have a reasonable expectation that the Company has adequate resources to continue in operational existence for the foreseeable future. Accordingly, the going concern basis of accounting continues to be adopted.</p>
+
+<h3>Note 5 — Share Capital</h3>
+<p>The authorized and paid-up share capital of the Company is ${cur} ${f(sc)}, fully paid up. All shares carry equal voting rights and entitlement to dividends.</p>
+
+<div class="sig-area">
+  <div class="sig-block"><div class="sig-line"></div><div class="sig-name">Authorized Signatory</div><div class="sig-title">${coName}</div></div>
+  <div class="sig-block"><div class="sig-line"></div><div class="sig-name">Books And Shelves LLC FZ</div><div class="sig-title">Licensed Auditors · Dubai, UAE</div></div>
+  <div class="sig-block"><div class="sig-line"></div><div class="sig-name">Date: _______________</div><div class="sig-title">&nbsp;</div></div>
+</div>
+
+<div class="footer">
+  This report has been prepared by Books And Shelves LLC FZ for ${coName} for the financial year ended 31 December ${yr}.<br>
+  This document is confidential and intended solely for the named addressees. Unauthorized distribution is prohibited.
+</div>
+</div></body></html>`;
+
+    document.getElementById('report-body').innerHTML = html;
+    document.getElementById('report-viewer').style.display = 'block';
+    document.getElementById('report-viewer').scrollTop = 0;
+  } catch(e) {
+    alert('Error generating report: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '🚀 Generate Audit Report';
+}
+</script>
+</body>
+</html>
